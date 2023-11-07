@@ -16,16 +16,16 @@ RUN mkdir -p /app
 WORKDIR /app
 
 # App dependencies
-COPY package*.json ./
+#COPY package*.json ./
 
 # install dependencies
-RUN npm i
+#RUN npm i
 
 # Copy app source code
-COPY . .
+#COPY . .
 
 # build
-RUN npm run build
+#RUN npm run build
 
 # setup the entrypoint
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint
