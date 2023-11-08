@@ -16,13 +16,13 @@ RUN mkdir -p /app
 WORKDIR /app
 
 # App dependencies
-#COPY package*.json ./
+COPY package*.json ./
 
 # install dependencies
-#RUN npm i
+RUN npm i
 
 # Copy app source code
-#COPY . .
+COPY . .
 
 # build
 #RUN npm run build
@@ -43,4 +43,4 @@ EXPOSE 9000
 #CMD [ "npm", "run", "start:watch"]
 # ENTRYPOINT [ "/bin/sh", "-c" ]
 ENTRYPOINT [ "/usr/local/bin/docker-entrypoint" ]
-CMD ["sleep", "infinity"]
+CMD ["npx", "mocha", "--no-timeouts", "'tests/testVote.js'"]
