@@ -62,7 +62,7 @@ chromeCapabilities.set('goog:chromeOptions', {
             //open the website
             driver = await new Builder().forBrowser("chrome")
                 // .usingServer('http://localhost:3000/webdriver')
-                .usingServer(env.CHROME_URL || 'http://localhost:3000/webdriver')
+                .usingServer(process.env.CHROME_URL || 'http://localhost:3000/webdriver')
                 .withCapabilities(chromeCapabilities)
                 .build();
             await driver.get(voteUrl);
