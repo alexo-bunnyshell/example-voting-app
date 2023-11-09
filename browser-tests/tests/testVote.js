@@ -1,5 +1,6 @@
 require("chromedriver");
 
+const { env } = require("process");
 const { Builder, By, Key,Capabilities, until } = require("selenium-webdriver");
 var assert = require("chai").assert;
 
@@ -60,7 +61,8 @@ chromeCapabilities.set('goog:chromeOptions', {
         for (let i = 0; i < numberOfClicks; i++) {
             //open the website
             driver = await new Builder().forBrowser("chrome")
-                .usingServer('http://localhost:3000/webdriver')
+                // .usingServer('http://localhost:3000/webdriver')
+                .usingServer(env.CHROME_URL || 'http://localhost:3000/webdriver')
                 .withCapabilities(chromeCapabilities)
                 .build();
             await driver.get(voteUrl);
