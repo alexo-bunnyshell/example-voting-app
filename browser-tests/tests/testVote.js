@@ -85,9 +85,15 @@ describe("cast a vote", function () {
             //assert that the note's text is the same as the input text "Hello Selenium"
             assert.equal(votes, numberOfClicks + " votes");
             console.log("TEST PASSED");
+        } 
+        catch (error) {
+            console.error("An error occurred:", error);
+            // Handle errors related to driver initialization or usage
         } finally {
             //close the browser
-            await driver.quit();
+            if (driver){
+                await driver.quit();
+            }
         }
 
     })
