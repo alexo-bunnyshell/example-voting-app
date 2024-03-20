@@ -88,6 +88,7 @@ describe("cast a vote", function () {
         } 
         catch (error) {
             console.error("An error occurred:", error);
+            throw error;
             // Handle errors related to driver initialization or usage
         } finally {
             //close the browser
