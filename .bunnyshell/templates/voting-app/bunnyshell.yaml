@@ -2,7 +2,8 @@ kind: Environment
 name: template-env
 type: primary
 environmentVariables:
-    SECRET: 'bns_secret(valueForEnvSecret)'
+    SECRET: 'ENCRYPTED[d3DnpeyRfBymCcgsMjePYvjOIXDbWcmqZRIXv0W9ZescfxM44pWRNm5jNm1j]'
+    TARGETARCH: x64
     TARGETPLATFORM: linux/amd64
 components:
     -
@@ -33,7 +34,6 @@ components:
         gitBranch: main
         dockerCompose:
             environment:
-                SECRET_ENV: 'bns_secret(valueForComponentSecret)'
                 POSTGRES_PASSWORD: postgres
                 POSTGRES_USER: postgres
             ports:
@@ -132,26 +132,7 @@ components:
                 dockerfile: Dockerfile
                 args:
                     TARGETPLATFORM: '{{ env.vars.TARGETPLATFORM}}'
-    -
-        kind: Application
-        name: express-app
-        gitRepo: 'https://github.com/alexo-bunnyshell/eaas-demonstrator.git'
-        gitBranch: main
-        gitApplicationPath: /
-        dockerCompose:
-            build:
-                context: .
-                dockerfile: Dockerfile
-            environment:
-                APP_DEBUG: 'true'
-                APP_SECRET: 'my name is NEO'
-            ports:
-                - '3000:3000'
-        hosts:
-            -
-                hostname: 'express-app-{{ env.base_domain }}'
-                path: /
-                servicePort: 3000
+                    TARGETARCH: '{{env.vars.TARGETARCH}}'
 volumes:
     -
         name: db-data
@@ -178,7 +159,7 @@ dev:
                         - '--reload'
                     syncPaths:
                         -
-                            remotePath: /app
+                            remotePath: /usr/local/app
                             localPath: .
     result:
         -
@@ -189,5 +170,5 @@ dev:
                         - server.js
                     syncPaths:
                         -
-                            remotePath: /app
+                            remotePath: /usr/local/app
                             localPath: .
