@@ -5,6 +5,7 @@ environmentVariables:
     SECRET: 'ENCRYPTED[d3DnpeyRfBymCcgsMjePYvjOIXDbWcmqZRIXv0W9ZescfxM44pWRNm5jNm1j]'
     TARGETARCH: x64
     TARGETPLATFORM: linux/amd64
+    ENV_VERSION: 1.2.1
 components:
     -
         kind: Terraform
