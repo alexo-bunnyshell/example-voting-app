@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:   
+    labels:
+        io.kompose.service: vote
+    name: vote
+spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 0
+    selector:
+        matchLabels:
+            io.kompose.service: vote
+    strategy:
+        rollingUpdate:
+            maxSurge: 25%
+            maxUnavailable: 25%
+        type: RollingUpdate
+    template:
+        metadata:
+            labels:
+                io.kompose.service: vote
+        spec:
+            containers:
+                -
+                    image: {{ .Values.images.vote}}
+                    imagePullPolicy: IfNotPresent
+                    name: vote
+                    ports:
+                        -
+                            containerPort: 80
+                            protocol: TCP
+            restartPolicy: Always
+            terminationGracePeriodSeconds: 30
+            tolerations:
+                -
+                    effect: NoSchedule
+                    key: kubernetes.io/arch
+                    operator: Equal
+                    value: amd64
