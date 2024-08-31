@@ -20,7 +20,21 @@ spec:
         io.kompose.service: db
     spec:
       containers:
-        image: postgres:9.4
+      - env:
+        - name: BNS_DEPLOY_TIMESTAMP
+          value: "2024-08-31T09:33:27+00:00"
+        envFrom:
+        - configMapRef:
+            name: project-variables
+        - configMapRef:
+            name: environment-variables
+        - configMapRef:
+            name: bns-builtin-env-vars
+        - configMapRef:
+            name: env-file-db
+        - configMapRef:
+            name: bns-builtin-db-env-vars
+        image: postgres:15-alpine
         imagePullPolicy: Always
         livenessProbe:
           exec:
@@ -51,8 +65,13 @@ spec:
         terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/lib/postgresql/data
-          name: db-data-igut25
+          name: db-data-{{.Values.unique}}
       dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: bns-reg-cred-{{.Values.unique}}-0
+      - name: bns-reg-cred-{{.Values.unique}}-125
+      - name: bns-reg-cred-{{.Values.unique}}-122
+      - name: bns-reg-cred-{{.Values.unique}}-137
       initContainers:
       - args:
         - -c
@@ -80,19 +99,12 @@ spec:
         terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /mnt/bns/volume-0
-          name: db-data-igut25
+          name: db-data-{{.Values.unique}}
       restartPolicy: Always
       schedulerName: default-scheduler
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
+      securityContext: {}
       terminationGracePeriodSeconds: 30
-      tolerations:
-      - effect: NoSchedule
-        key: kubernetes.io/arch
-        operator: Equal
-        value: amd64
       volumes:
-      - name: db-data-igut25
+      - name: db-data-{{.Values.unique}}
         persistentVolumeClaim:
-          claimName: db-data-igut25
+          claimName: db-data-{{.Values.unique}}          
