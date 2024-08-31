@@ -21,6 +21,10 @@ spec:
     spec:
       containers:
       - env:
+        - name: POSTGRES_USER
+          value: {{ .Values.db.user || "postgres" }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.db.password || "postgres" }}
         - name: BNS_DEPLOY_TIMESTAMP
           value: "2024-08-31T09:33:27+00:00"
         image: postgres:15-alpine
