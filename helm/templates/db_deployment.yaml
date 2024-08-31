@@ -23,17 +23,6 @@ spec:
       - env:
         - name: BNS_DEPLOY_TIMESTAMP
           value: "2024-08-31T09:33:27+00:00"
-        envFrom:
-        - configMapRef:
-            name: project-variables
-        - configMapRef:
-            name: environment-variables
-        - configMapRef:
-            name: bns-builtin-env-vars
-        - configMapRef:
-            name: env-file-db
-        - configMapRef:
-            name: bns-builtin-db-env-vars
         image: postgres:15-alpine
         imagePullPolicy: Always
         livenessProbe:
@@ -67,11 +56,6 @@ spec:
         - mountPath: /var/lib/postgresql/data
           name: db-data-{{.Values.unique}}
       dnsPolicy: ClusterFirst
-      imagePullSecrets:
-      - name: bns-reg-cred-{{.Values.unique}}-0
-      - name: bns-reg-cred-{{.Values.unique}}-125
-      - name: bns-reg-cred-{{.Values.unique}}-122
-      - name: bns-reg-cred-{{.Values.unique}}-137
       initContainers:
       - args:
         - -c

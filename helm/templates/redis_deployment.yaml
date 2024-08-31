@@ -25,15 +25,6 @@ spec:
       - env:
         - name: BNS_DEPLOY_TIMESTAMP
           value: "2023-01-01T20:53:20+00:00"
-        envFrom:
-        - configMapRef:
-            name: project-variables
-        - configMapRef:
-            name: environment-variables
-        - configMapRef:
-            name: bns-builtin-env-vars
-        - configMapRef:
-            name: bns-builtin-redis-env-vars
         image: redis:5.0-alpine3.10
         imagePullPolicy: Always
         livenessProbe:
@@ -48,8 +39,6 @@ spec:
         ports:
         - containerPort: 6379
           protocol: TCP        
-      imagePullSecrets:
-      - name: bns-reg-cred-igut25-0
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       tolerations:
