@@ -5,7 +5,7 @@ metadata:
   - kubernetes.io/pvc-protection
   labels:
     app.kubernetes.io/part-of: env-igut25
-  name: db-data-igut25
+  name: db-data-{{ .Values.unique }}
 spec:
   accessModes:
   - ReadWriteOnce

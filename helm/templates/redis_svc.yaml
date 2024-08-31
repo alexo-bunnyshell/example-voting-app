@@ -15,7 +15,7 @@ spec:
     protocol: TCP
     targetPort: 6379
   selector:
-    io.kompose.service: bunny
+    io.kompose.service: redis
   sessionAffinity: None
   type: ClusterIP
 status:
