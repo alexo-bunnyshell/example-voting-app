@@ -10,10 +10,10 @@ spec:
   - IPv4
   ipFamilyPolicy: SingleStack
   ports:
-  - name: "3000"
-    port: 3000
+  - name: "5432"
+    port: 5432
     protocol: TCP
-    targetPort: 3000
+    targetPort: 5432
   selector:
     io.kompose.service: db
   sessionAffinity: None
