@@ -1,0 +1,95 @@
+kind: Environment
+name: template-env-helm
+type: primary
+environmentVariables:
+    SECRET: 'ENCRYPTED[d3DnpeyRfBymCcgsMjePYvjOIXDbWcmqZRIXv0W9ZescfxM44pWRNm5jNm1j]'
+    TARGETARCH: x64
+    TARGETPLATFORM: linux/amd64
+components:
+    components:
+    -
+        kind: DockerImage
+        name: vote-image
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: main
+        gitApplicationPath: /vote
+        context: ./vote
+        dockerfile: Dockerfile
+        args:
+            ENV: bunnyshell
+    -
+        kind: DockerImage
+        name: result-image
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: main
+        gitApplicationPath: /result
+        context: ./result
+        dockerfile: Dockerfile
+        args:
+            ENV: bunnyshell
+    -
+        kind: DockerImage
+        name: worker-image
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: main
+        gitApplicationPath: /worker
+        context: ./worker
+        dockerfile: Dockerfile
+        args:
+            ENV: bunnyshell
+            TARGETPLATFORM: '{{ env.vars.TARGETPLATFORM}}'
+            TARGETARCH: '{{env.vars.TARGETARCH}}'
+    -
+        kind: Helm
+        name: vote-helm-release
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: main
+        gitApplicationPath: ./helm
+        runnerImage: 'dtzar/helm-kubectl:3.8.2'
+        deploy:
+            - |
+                echo "pwd" && pwd && echo "ls -alh" &&  ls -alh && echo "whoami" && whoami
+            - |
+                echo "cat /bns/helpers/helm/add_labels/kustomize"
+                ls -alh /bns/helpers/helm/add_labels
+                cat /bns/helpers/helm/add_labels/kustomize
+                # cat /bns/helpers/helm/add_labels/all.yaml
+            - |
+                echo "ls -al /bns/helpers/helm/add_labels"
+                ls -al /bns/helpers/helm/add_labels
+                echo "cat /bns/helpers/helm/add_labels/*"
+                cat /bns/helpers/helm/add_labels/*
+            - |
+                cat << EOF > my_values.yaml
+                    env: bunnyshell
+                    images:
+                        vote: {{ components.vote-image.image }}
+                        worker: {{ components.worker-image.image }}
+                        result: {{ components.result-image.image }}
+                    replicas: 1
+                    unique: {{ env.unique }}
+                    ingress:
+                        className: bns-nginx
+                    db:
+                        user: postgres
+                        password: postgres
+                EOF
+                cat my_values.yaml
+            - 'helm upgrade --install --namespace {{ env.k8s.namespace }} --dependency-update --post-renderer /bns/helpers/helm/add_labels/kustomize -f my_values.yaml vote-{{ env.unique }} ./helm || sleep 3600'
+            - |
+
+                VOTE_SERVICE_LB_IP=$(kubectl get services --namespace {{ env.k8s.namespace }} vote --output jsonpath='{.status.loadBalancer.ingress[0].ip}')
+                RESULT_SERVICE_LB_IP=$(kubectl get services --namespace {{ env.k8s.namespace }} result --output jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        destroy:
+            - 'helm uninstall vote-{{ env.unique }} --namespace {{ env.k8s.namespace }}'
+        start:
+            - 'helm upgrade --namespace {{ env.k8s.namespace }} --post-renderer /bns/helpers/helm/add_labels/kustomize --reuse-values --set replicas=1 vote-{{ env.unique }} ./helm'
+        stop:
+            - 'helm upgrade --namespace {{ env.k8s.namespace }} --post-renderer /bns/helpers/helm/add_labels/kustomize --reuse-values --set replicas=0 vote-{{ env.unique }} ./helm'
+        exportVariables:
+            - VOTE_SERVICE_LB_IP
+            - RESULT_SERVICE_LB_IP
+        dependsOn:
+            - vote-image
+            - worker-image
+            - result-image
