@@ -24,7 +24,7 @@ spec:
         - name: POSTGRES_USER
           value: {{ default "postgres" .Values.db.user }}
         - name: POSTGRES_PASSWORD
-          value: {{ default "postgres" .Values.db.password  }}
+          value: {{ default "postgres" .Values.db.password }}
         - name: BNS_DEPLOY_TIMESTAMP
           value: "2024-08-31T09:33:27+00:00"
         image: postgres:15-alpine
