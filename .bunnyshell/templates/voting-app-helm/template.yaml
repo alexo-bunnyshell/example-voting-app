@@ -1,0 +1,23 @@
+name: Example Voting App - Helm
+description: A simple distributed application running across multiple containers. Installed through Helm.
+tags:
+   - nodejs
+   - redis
+   - python
+   - dotnet
+   - postgres
+icons: [ 'nodejs', 'express', 'python', 'postgres', 'dotnet' ]
+stack:
+  packages:
+    - name: Node.js
+      version: '18'
+    - name: Express.js
+      version: '4.17'
+    - name: PostgreSQL
+      version: '15.2'
+    - name: Python
+      version: '3.10'
+    - name: .NET
+      version: '7.0'
+
+discoverable: true
