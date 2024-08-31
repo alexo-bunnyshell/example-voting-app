@@ -16,7 +16,7 @@ items:
             service:
               name: result
               port:
-                number: 5000
+                number: 80
           path: /
           pathType: Prefix
 

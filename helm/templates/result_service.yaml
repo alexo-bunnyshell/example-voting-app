@@ -10,10 +10,10 @@ spec:
   - IPv4
   ipFamilyPolicy: SingleStack
   ports:
-  - name: "5000"
-    port: 5000
+  - name: "80"
+    port: 80
     protocol: TCP
-    targetPort: 5000
+    targetPort: 80
   selector:
     io.kompose.service: result
   sessionAffinity: None
