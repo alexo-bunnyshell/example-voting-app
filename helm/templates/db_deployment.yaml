@@ -2,8 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:   
     labels:
-        io.kompose.service: bunny
-    name: bunny
+        io.kompose.service: db
+    name: db
 spec:
   progressDeadlineSeconds: 600
   replicas: 1

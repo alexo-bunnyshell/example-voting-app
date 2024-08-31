@@ -2,8 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    io.kompose.service: bunny
-  name: bunny
+    io.kompose.service: db
+  name: db
 spec:
   internalTrafficPolicy: Cluster
   ipFamilies:
@@ -15,7 +15,7 @@ spec:
     protocol: TCP
     targetPort: 3000
   selector:
-    io.kompose.service: bunny
+    io.kompose.service: db
   sessionAffinity: None
   type: ClusterIP
 status:
