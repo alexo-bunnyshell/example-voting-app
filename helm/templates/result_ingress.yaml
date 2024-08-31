@@ -6,19 +6,19 @@ items:
     generation: 1
     labels:
     name: result-{{ .Values.unique }}-ingress
-spec:
-  ingressClassName: bns-nginx
-  rules:
-  - host: result-{{.Values.unique}}.bunnyenv.com
-    http:
-      paths:
-      - backend:
-          service:
-            name: result
-            port:
-              number: 80
-        path: /
-        pathType: Prefix
+  spec:
+    ingressClassName: bns-nginx
+    rules:
+    - host: result-{{.Values.unique}}.bunnyenv.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: result
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
 
 
 kind: List
