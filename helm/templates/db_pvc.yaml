@@ -4,7 +4,6 @@ metadata:
   finalizers:
   - kubernetes.io/pvc-protection
   labels:
-    app.kubernetes.io/part-of: env-igut25
   name: db-data-{{ .Values.unique }}
 spec:
   accessModes:
@@ -14,4 +13,3 @@ spec:
       storage: 1Gi
   storageClassName: bns-disk-sc
   volumeMode: Filesystem
-  volumeName: pvc-05dceb94-6bc7-433f-9c37-922300ebb94b
