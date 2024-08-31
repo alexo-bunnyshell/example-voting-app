@@ -6,7 +6,6 @@ environmentVariables:
     TARGETARCH: x64
     TARGETPLATFORM: linux/amd64
 components:
-    components:
     -
         kind: DockerImage
         name: vote-image
