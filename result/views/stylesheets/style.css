@@ -1,4 +1,4 @@
-@import url(//fonts.googleapis.com/css?family=Open+Sans:400,700,600);
+@import url(//fonts.googleapis.com/css?family=Inter:400,500,600,700&display=swap);
 
 *{
   box-sizing:border-box;
@@ -7,29 +7,30 @@ html,body{
   margin:0;
   padding:0;
   height:100%;
-  font-family: 'Open Sans';
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 body{
   opacity:0;
-  transition: all 1s linear;
+  transition: all 1s ease;
 }
 
 .divider{
-  height: 150px;
-  width:2px;
-  background-color: #C0C9CE;
+  height: 180px;
+  width: 3px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0.2) 100%);
   position: relative;
   top: 50%;
   float: left;
   transform: translateY(-50%);
+  border-radius: 2px;
 }
 
 #background-stats-1{
-  background-color: #2196f3;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
 #background-stats-2{
-  background-color: #00cbca;
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
 }
 
 #content-container{
@@ -37,7 +38,7 @@ body{
   position:relative;
   margin:0 auto;
   display:table;
-  padding:10px;
+  padding:20px;
   max-width:940px;
   height:100%;
 }
@@ -49,23 +50,31 @@ body{
 #result{
   z-index: 3;
   position: absolute;
-  bottom: 40px;
-  right: 20px;
+  bottom: 50px;
+  right: 40px;
   color: #fff;
-  opacity: 0.5;
-  font-size: 45px;
-  font-weight: 600;
+  opacity: 0.9;
+  font-size: 32px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 16px 32px;
+  border-radius: 50px;
+  backdrop-filter: blur(10px);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 #choice{
-  transition: all 300ms linear;
-  line-height:1.3em;
-  background:#fff;
-  box-shadow: 10px 0 0 #fff, -10px 0 0 #fff;
+  transition: all 400ms ease;
+  line-height:1.4em;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25);
   vertical-align:middle;
-  font-size:40px;
-  font-weight: 600;
-  width: 450px;
-  height: 200px;
+  font-size:48px;
+  font-weight: 700;
+  width: 580px;
+  height: 240px;
+  border-radius: 24px;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
 }
 #choice a{
   text-decoration:none;
@@ -82,19 +91,29 @@ body{
   transform: translateY(-50%);
   text-align: left;
   padding-left: 50px;
+  transition: all 0.3s ease;
 }
 
 #choice .choice .label{
   text-transform: uppercase;
+  font-size: 24px;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+
+#choice .choice .stat{
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 #choice .choice.dogs{
-  color: #00cbca;
+  color: #00b4d8;
   float: right;
 }
 
 #choice .choice.cats{
-  color: #2196f3;
+  color: #f5576c;
   float: left;
 }
 #background-stats{
@@ -102,11 +121,24 @@ body{
   height:100%;
   width:100%;
   position:absolute;
+  overflow: hidden;
 }
 #background-stats div{
-  transition: width 400ms ease-in-out;
+  transition: width 600ms cubic-bezier(0.4, 0.0, 0.2, 1);
   display:inline-block;
   margin-bottom:-4px;
   width:50%;
   height:100%;
+  position: relative;
+}
+
+#background-stats div::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.1) 0%, transparent 70%);
+  pointer-events: none;
 }
