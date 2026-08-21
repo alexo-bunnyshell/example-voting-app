@@ -7,9 +7,17 @@ services:
     build: 
       context: ./vote
       target: dev
+    environment:
+      OTEL_SERVICE_NAME: vote
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      DEPLOYMENT_ENVIRONMENT: local
+      SERVICE_VERSION: dev
     depends_on:
       redis:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     healthcheck: 
       test: ["CMD", "curl", "-f", "http://localhost"]
       interval: 15s
@@ -27,10 +35,19 @@ services:
   result:
     build: ./result
     # use nodemon rather than node for local dev
-    entrypoint: nodemon --inspect=0.0.0.0 server.js
+    # --require loads the OTel SDK before any application module
+    entrypoint: nodemon --inspect=0.0.0.0 --require ./tracing.js server.js
+    environment:
+      OTEL_SERVICE_NAME: result
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      DEPLOYMENT_ENVIRONMENT: local
+      SERVICE_VERSION: dev
     depends_on:
       db:
         condition: service_healthy 
+      otel-collector:
+        condition: service_started
     volumes:
       - ./result:/usr/local/app
     ports:
@@ -43,13 +60,41 @@ services:
   worker:
     build:
       context: ./worker
+    environment:
+      OTEL_SERVICE_NAME: worker
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      DEPLOYMENT_ENVIRONMENT: local
+      SERVICE_VERSION: dev
     depends_on:
       redis:
         condition: service_healthy 
       db:
         condition: service_healthy 
+      otel-collector:
+        condition: service_started
     networks:
       - back-tier
+
+  # Gateway collector: the only component that knows where Grafana lives.
+  # Set OTLP_BACKEND_ENDPOINT (and OTLP_BACKEND_AUTH_HEADER if needed) to ship
+  # onwards; without it the debug exporter still prints every signal.
+  otel-collector:
+    build: ./otel-collector
+    environment:
+      DEPLOYMENT_ENVIRONMENT: local
+      SERVICE_NAMESPACE: voting-app
+      OTLP_BACKEND_ENDPOINT: "${OTLP_BACKEND_ENDPOINT:-http://otlp-backend-not-configured.invalid:4318}"
+      OTLP_BACKEND_AUTH_HEADER: "${OTLP_BACKEND_AUTH_HEADER:-none}"
+      OTEL_DEBUG_VERBOSITY: "${OTEL_DEBUG_VERBOSITY:-normal}"
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus scrape
+      - "55679:55679" # zpages
+    networks:
+      - back-tier
+      - front-tier
 
   redis:
     image: redis:alpine

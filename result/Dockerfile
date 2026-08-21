@@ -22,4 +22,6 @@ ENV PORT 80
 EXPOSE 80
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "server.js"]
+# --require loads the OpenTelemetry SDK before any application module, which
+# is what allows auto-instrumentation to patch http/express/pg.
+CMD ["node", "--require", "./tracing.js", "server.js"]

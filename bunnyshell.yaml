@@ -1,0 +1,259 @@
+kind: Environment
+name: voting-app-otel
+type: primary
+
+# Endpoint and credentials for the Grafana / LGTM stack. Only the collector reads
+# these -- the application components never see them.
+#   OTLP_BACKEND_ENDPOINT     e.g. https://otlp-gateway-prod-eu-west-2.grafana.net/otlp
+#                             or an in-cluster http://alloy.monitoring.svc:4318
+#   OTLP_BACKEND_AUTH_HEADER  full Authorization header value, e.g. "Basic <base64>"
+environmentVariables:
+    SECRET: 'ENCRYPTED[d3DnpeyRfBymCcgsMjePYvjOIXDbWcmqZRIXv0W9ZescfxM44pWRNm5jNm1j]'
+    TARGETARCH: x64
+    TARGETPLATFORM: linux/amd64
+    OTLP_BACKEND_ENDPOINT: 'http://otlp-backend-not-configured.invalid:4318'
+    OTLP_BACKEND_AUTH_HEADER: none
+    OTLP_BACKEND_INSECURE_SKIP_VERIFY: 'false'
+    OTEL_DEBUG_VERBOSITY: normal
+    OTEL_COLLECTOR_LOG_LEVEL: info
+    # Stamped on every signal as service.version. Bump on release, or replace the
+    # per-component reference below with a component gitBranchSha variable.
+    SERVICE_VERSION: 1.0.0-otel
+
+components:
+    -
+        kind: Terraform
+        name: password
+        gitRepo: 'https://github.com/bunnyshell/templates.git'
+        gitBranch: tf-password-generator/v0.1.0
+        gitApplicationPath: components/tf-password-generator
+        runnerImage: 'hashicorp/terraform:1.5'
+        deploy:
+            - 'cd components/tf-password-generator'
+            - '/bns/helpers/terraform/get_managed_backend > zz_backend_override.tf'
+            - 'terraform init -input=false -no-color'
+            - 'terraform apply -var "length=20" -var "min_special=5" -input=false -auto-approve -no-color'
+            - 'BNS_TF_STATE_LIST=`terraform show -json`'
+            - 'PASSWORD=`terraform output -raw password`'
+        destroy:
+            - 'cd components/tf-password-generator'
+            - '/bns/helpers/terraform/get_managed_backend > zz_backend_override.tf'
+            - 'terraform init -input=false -no-color'
+            - 'terraform destroy -var "length=20" -var "min_special=5" -input=false -auto-approve -no-color'
+        exportVariables:
+            - PASSWORD
+    -
+        kind: Database
+        name: db
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: feature/otel-instrumentation
+        dockerCompose:
+            environment:
+                POSTGRES_PASSWORD: postgres
+                POSTGRES_USER: postgres
+            ports:
+                - '5432:5432'
+            healthcheck:
+                test:
+                    - CMD-SHELL
+                    - /healthchecks/postgres.sh
+                interval: 5s
+            image: 'postgres:15-alpine'
+        volumes:
+            -
+                name: db-data
+                mount: /var/lib/postgresql/data
+                subPath: ''
+    -
+        kind: Service
+        name: redis
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: feature/otel-instrumentation
+        dockerCompose:
+            healthcheck:
+                test:
+                    - CMD-SHELL
+                    - /healthchecks/redis.sh
+                interval: 5s
+            image: 'redis:alpine'
+            ports:
+                - '6379:6379'
+    -
+        # Gateway collector. Every application exports OTLP here; this is the only
+        # place that knows the Grafana endpoint, so credentials never reach an app
+        # image and the backend can be repointed without a rebuild.
+        kind: Application
+        name: otel-collector
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: feature/otel-instrumentation
+        gitApplicationPath: otel-collector
+        dockerCompose:
+            build:
+                context: ./otel-collector
+                dockerfile: Dockerfile
+            environment:
+                DEPLOYMENT_ENVIRONMENT: '{{ env.name }}'
+                SERVICE_NAMESPACE: voting-app
+                BNS_ENVIRONMENT_ID: '{{ env.unique }}'
+                OTLP_BACKEND_ENDPOINT: '{{ env.vars.OTLP_BACKEND_ENDPOINT }}'
+                OTLP_BACKEND_AUTH_HEADER: '{{ env.vars.OTLP_BACKEND_AUTH_HEADER }}'
+                OTLP_BACKEND_INSECURE_SKIP_VERIFY: '{{ env.vars.OTLP_BACKEND_INSECURE_SKIP_VERIFY }}'
+                OTEL_DEBUG_VERBOSITY: '{{ env.vars.OTEL_DEBUG_VERBOSITY }}'
+                OTEL_COLLECTOR_LOG_LEVEL: '{{ env.vars.OTEL_COLLECTOR_LOG_LEVEL }}'
+            healthcheck:
+                test:
+                    - CMD
+                    - /otelcol-contrib
+                    - --version
+                interval: 30s
+                timeout: 5s
+                retries: 3
+                start_period: 10s
+            ports:
+                - '4317:4317'
+                - '4318:4318'
+                - '8889:8889'
+                - '13133:13133'
+                - '55679:55679'
+        hosts:
+            -
+                # zpages: live pipeline stats, useful to show on screen during a demo.
+                hostname: 'otel-{{ env.base_domain }}'
+                path: /
+                servicePort: 55679
+    -
+        kind: Application
+        name: result
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: feature/otel-instrumentation
+        gitApplicationPath: result
+        dockerCompose:
+            build:
+                context: ./result
+                dockerfile: Dockerfile
+                args:
+                    SECRET_ARG: '{{env.vars.SECRET}}'
+            entrypoint:
+                - nodemon
+                - '--require'
+                - ./tracing.js
+                - server.js
+            environment:
+                OTEL_SERVICE_NAME: result
+                OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+                OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+                OTEL_RESOURCE_ATTRIBUTES: 'k8s.namespace.name={{ env.k8s.namespace }},bunnyshell.environment.id={{ env.unique }}'
+                DEPLOYMENT_ENVIRONMENT: '{{ env.name }}'
+                SERVICE_VERSION: '{{ env.vars.SERVICE_VERSION }}'
+            ports:
+                - '80:80'
+                - '5858:5858'
+        hosts:
+            -
+                hostname: 'result-{{ env.base_domain }}'
+                path: /
+                servicePort: 80
+    -
+        kind: Application
+        name: vote
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: feature/otel-instrumentation
+        gitApplicationPath: vote
+        dockerCompose:
+            build:
+                context: ./vote
+                dockerfile: Dockerfile
+            command:
+                - python
+                - app.py
+            environment:
+                OTEL_SERVICE_NAME: vote
+                OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+                OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+                OTEL_RESOURCE_ATTRIBUTES: 'k8s.namespace.name={{ env.k8s.namespace }},bunnyshell.environment.id={{ env.unique }}'
+                DEPLOYMENT_ENVIRONMENT: '{{ env.name }}'
+                SERVICE_VERSION: '{{ env.vars.SERVICE_VERSION }}'
+            healthcheck:
+                test:
+                    - CMD
+                    - curl
+                    - '-f'
+                    - 'http://localhost/healthz'
+                timeout: 5s
+                interval: 15s
+                retries: 3
+                start_period: 10s
+            ports:
+                - '80:80'
+        hosts:
+            -
+                hostname: 'vote-{{ env.base_domain }}'
+                path: /
+                servicePort: 80
+            -
+                hostname: '*.vote-{{ env.base_domain }}'
+                path: /
+                servicePort: 80
+    -
+        kind: Application
+        name: worker
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: feature/otel-instrumentation
+        gitApplicationPath: worker
+        dockerCompose:
+            build:
+                context: ./worker
+                dockerfile: Dockerfile
+                args:
+                    TARGETPLATFORM: '{{ env.vars.TARGETPLATFORM}}'
+                    TARGETARCH: '{{env.vars.TARGETARCH}}'
+            environment:
+                OTEL_SERVICE_NAME: worker
+                OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+                OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+                OTEL_RESOURCE_ATTRIBUTES: 'k8s.namespace.name={{ env.k8s.namespace }},bunnyshell.environment.id={{ env.unique }}'
+                DEPLOYMENT_ENVIRONMENT: '{{ env.name }}'
+                SERVICE_VERSION: '{{ env.vars.SERVICE_VERSION }}'
+
+volumes:
+    -
+        name: db-data
+        size: 1Gi
+        type: disk
+
+dev:
+    vote:
+        -
+            containers:
+                vote:
+                    command:
+                        - gunicorn
+                        - 'app:app'
+                        - '-b'
+                        - '0.0.0.0:80'
+                        - '--log-file'
+                        - '-'
+                        - '--access-logfile'
+                        - '-'
+                        - '--workers'
+                        - '4'
+                        - '--keep-alive'
+                        - '0'
+                        - '--reload'
+                    syncPaths:
+                        -
+                            remotePath: /usr/local/app
+                            localPath: .
+    result:
+        -
+            containers:
+                result:
+                    command:
+                        - nodemon
+                        - '--require'
+                        - ./tracing.js
+                        - server.js
+                    syncPaths:
+                        -
+                            remotePath: /usr/local/app
+                            localPath: .

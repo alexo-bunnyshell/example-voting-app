@@ -1,0 +1,127 @@
+# OpenTelemetry Collector -- gateway for the voting app.
+#
+# Why a collector instead of exporting straight to Grafana:
+#   * the backend endpoint and credentials live in exactly one place, so the
+#     application images stay free of secrets and of vendor specifics;
+#   * batching and retry happen out of process, so a slow backend never adds
+#     latency to a vote;
+#   * environment-level attributes (Bunnyshell env id, cluster, namespace) are
+#     stamped on every signal here rather than in three different languages.
+#
+# Everything marked ${env:...} is supplied by the environment, which is how the
+# same config serves docker-compose and every Bunnyshell ephemeral environment.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Protects the collector from unbounded memory growth if the backend is down.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Identifies which ephemeral environment produced the telemetry. Without this
+  # every Bunnyshell env looks identical in Grafana.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${env:DEPLOYMENT_ENVIRONMENT:-local}
+        action: upsert
+      - key: service.namespace
+        value: ${env:SERVICE_NAMESPACE:-voting-app}
+        action: upsert
+      - key: bunnyshell.environment.id
+        value: ${env:BNS_ENVIRONMENT_ID:-unknown}
+        action: upsert
+
+connectors:
+  # Derives RED metrics (rate, errors, duration) from the spans that already flow
+  # through here, so the Grafana service graph works without extra app code.
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s]
+    dimensions:
+      - name: service.name
+      - name: span.kind
+      - name: status.code
+    metrics_flush_interval: 15s
+
+exporters:
+  # Primary destination: the Grafana / LGTM stack. Point OTLP_BACKEND_ENDPOINT at
+  # it (e.g. https://otlp-gateway-<region>.grafana.net/otlp, or an in-cluster
+  # http://alloy.monitoring.svc:4318) and, if it needs auth, set
+  # OTLP_BACKEND_AUTH_HEADER to the full header value, e.g. "Basic <base64>".
+  #
+  # The default endpoint deliberately does not resolve: until it is set, the
+  # collector logs "no such host: otlp-backend-not-configured.invalid" once per
+  # retry cycle and drops the batch, while the debug and prometheus exporters
+  # keep working. Nothing else in the environment is affected.
+  otlphttp/backend:
+    endpoint: ${env:OTLP_BACKEND_ENDPOINT:-http://otlp-backend-not-configured.invalid:4318}
+    headers:
+      Authorization: ${env:OTLP_BACKEND_AUTH_HEADER:-none}
+    tls:
+      insecure_skip_verify: ${env:OTLP_BACKEND_INSECURE_SKIP_VERIFY:-false}
+    compression: gzip
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+    sending_queue:
+      enabled: true
+      queue_size: 5000
+
+  # Always on. Makes the pipeline demonstrable from `bns logs` alone, even before
+  # a backend is configured -- useful when showing the app in a fresh environment.
+  debug:
+    verbosity: ${env:OTEL_DEBUG_VERBOSITY:-normal}
+    sampling_initial: 2
+    sampling_thereafter: 500
+
+  # Prometheus scrape endpoint, for a Grafana Agent / Prometheus that prefers to
+  # pull rather than receive OTLP.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  # Live pipeline stats at :55679/debug/servicez -- handy to show on screen.
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, zpages]
+  telemetry:
+    logs:
+      level: ${env:OTEL_COLLECTOR_LOG_LEVEL:-info}
+    metrics:
+      level: detailed
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/backend, debug, spanmetrics]
+    metrics:
+      receivers: [otlp, spanmetrics]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/backend, debug, prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/backend, debug]

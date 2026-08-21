@@ -55,6 +55,18 @@ kubectl delete -f k8s-specifications/
 * A [.NET](/worker/) worker which consumes votes and stores them in…
 * A [Postgres](https://hub.docker.com/_/postgres/) database backed by a Docker volume
 * A [Node.js](/result) web app which shows the results of the voting in real time
+* An [OpenTelemetry Collector](/otel-collector) gateway which receives traces,
+  metrics and logs from all three services and forwards them to Grafana
+
+## Observability
+
+All three services are instrumented with OpenTelemetry for traces, metrics and
+logs, including end-to-end trace propagation across the Redis queue — a vote
+renders as a single trace spanning Python, Redis, .NET and Postgres.
+
+See [docs/observability.md](docs/observability.md) for what is instrumented and
+how to point the collector at your Grafana / LGTM stack
+(`OTLP_BACKEND_ENDPOINT`).
 
 ## Notes
 
