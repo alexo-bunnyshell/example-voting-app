@@ -42,7 +42,7 @@ processors:
         value: ${env:SERVICE_NAMESPACE:-voting-app}
         action: upsert
       - key: bunnyshell.environment.id
-        value: ${env:BNS_ENVIRONMENT_ID:-unknown}
+        value: ${env:BUNNYSHELL_ENV_ID:-unknown}
         action: upsert
 
 connectors:

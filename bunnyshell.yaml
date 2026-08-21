@@ -94,7 +94,7 @@ components:
             environment:
                 DEPLOYMENT_ENVIRONMENT: '{{ env.name }}'
                 SERVICE_NAMESPACE: voting-app
-                BNS_ENVIRONMENT_ID: '{{ env.unique }}'
+                BUNNYSHELL_ENV_ID: '{{ env.unique }}'
                 OTLP_BACKEND_ENDPOINT: '{{ env.vars.OTLP_BACKEND_ENDPOINT }}'
                 OTLP_BACKEND_AUTH_HEADER: '{{ env.vars.OTLP_BACKEND_AUTH_HEADER }}'
                 OTLP_BACKEND_INSECURE_SKIP_VERIFY: '{{ env.vars.OTLP_BACKEND_INSECURE_SKIP_VERIFY }}'
