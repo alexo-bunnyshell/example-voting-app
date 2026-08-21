@@ -20,7 +20,12 @@ namespace Worker
         // The vote service injects W3C trace context into the queued JSON payload.
         // Using the globally configured propagator keeps both ends in sync if the
         // propagation format is ever changed via OTEL_PROPAGATORS.
-        private static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
+        //
+        // Resolved on each use rather than cached in a static field: the SDK installs
+        // the real composite propagator while building the TracerProvider, and a field
+        // initialiser would capture the no-op propagator that precedes it -- which
+        // silently breaks propagation and makes every vote a separate root trace.
+        private static TextMapPropagator Propagator => Propagators.DefaultTextMapPropagator;
 
         private static ILogger _log;
 

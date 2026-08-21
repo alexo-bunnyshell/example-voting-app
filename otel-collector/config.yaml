@@ -31,6 +31,17 @@ processors:
     send_batch_size: 1024
     send_batch_max_size: 2048
 
+  # The worker polls Redis every 100ms and issues a Postgres keepalive on every
+  # empty poll. That is ~20 root spans per second of pure infrastructure chatter
+  # which would bury the traces that describe an actual vote. Dropping it here
+  # keeps the applications unmodified and the trace store readable.
+  filter/poll_noise:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsRootSpan() and attributes["db.statement"] == "SELECT 1"'
+        - 'IsRootSpan() and name == "LPOP"'
+
   # Identifies which ephemeral environment produced the telemetry. Without this
   # every Bunnyshell env looks identical in Grafana.
   resource:
@@ -117,7 +128,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
+      processors: [memory_limiter, filter/poll_noise, resource, batch]
       exporters: [otlphttp/backend, debug, spanmetrics]
     metrics:
       receivers: [otlp, spanmetrics]

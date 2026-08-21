@@ -106,6 +106,22 @@ POST / (vote, SERVER)
             └── INSERT INTO votes (Npgsql span)
 ```
 
+### Gotcha worth knowing
+
+The .NET propagator must be resolved **at use time**, not cached in a static
+field. The SDK installs the real composite propagator while building the
+`TracerProvider`; a field initialiser that runs before that captures the no-op
+propagator instead, and every vote silently becomes its own root trace with no
+error anywhere.
+
+## Dropping poll-loop noise
+
+The worker polls Redis every 100ms and issues a Postgres `SELECT 1` keepalive on
+every empty poll — roughly 20 root spans per second of infrastructure chatter
+that would bury the traces describing an actual vote. A `filter` processor in the
+collector drops those root spans, so the applications stay unmodified and the
+trace store stays readable.
+
 ## Span metrics and the service graph
 
 The collector's `spanmetrics` connector derives RED metrics (rate, errors,
