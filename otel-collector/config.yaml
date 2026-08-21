@@ -42,6 +42,19 @@ processors:
         - 'IsRootSpan() and attributes["db.statement"] == "SELECT 1"'
         - 'IsRootSpan() and name == "LPOP"'
 
+  # Npgsql emits its spans as "UNKNOWN" because it does not parse the command
+  # text. Naming them here keeps the vote trace readable end to end without
+  # touching the worker.
+  transform/db_span_names:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(name, "INSERT votes") where name == "UNKNOWN" and IsMatch(attributes["db.statement"], "^INSERT INTO votes")
+          - set(name, "UPDATE votes") where name == "UNKNOWN" and IsMatch(attributes["db.statement"], "^UPDATE votes")
+          - set(name, "SELECT votes") where name == "UNKNOWN" and IsMatch(attributes["db.statement"], "^SELECT")
+          - set(name, "CREATE TABLE votes") where name == "UNKNOWN" and IsMatch(attributes["db.statement"], "^CREATE TABLE")
+
   # Identifies which ephemeral environment produced the telemetry. Without this
   # every Bunnyshell env looks identical in Grafana.
   resource:
@@ -128,7 +141,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, filter/poll_noise, resource, batch]
+      processors: [memory_limiter, filter/poll_noise, transform/db_span_names, resource, batch]
       exporters: [otlphttp/backend, debug, spanmetrics]
     metrics:
       receivers: [otlp, spanmetrics]
