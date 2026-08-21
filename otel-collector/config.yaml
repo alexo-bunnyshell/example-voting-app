@@ -52,10 +52,12 @@ connectors:
     histogram:
       explicit:
         buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s]
+    # service.name, span.name, span.kind and status.code are already default
+    # dimensions; listing them again is rejected as duplicates. Only app-specific
+    # dimensions belong here.
     dimensions:
-      - name: service.name
-      - name: span.kind
-      - name: status.code
+      - name: app.vote.option
+      - name: deployment.environment
     metrics_flush_interval: 15s
 
 exporters:
