@@ -1,5 +1,5 @@
 kind: Environment
-name: voting-app-otel
+name: e2e-base
 type: primary
 
 # Endpoint and credentials for the Grafana / LGTM stack. Only the collector reads
@@ -19,6 +19,13 @@ environmentVariables:
     # Stamped on every signal as service.version. Bump on release, or replace the
     # per-component reference below with a component gitBranchSha variable.
     SERVICE_VERSION: 1.0.0-otel
+    # End-to-end tests (e2e/). true: failing tests fail the deploy. false: report only.
+    E2E_BLOCKING: 'true'
+    PW_BROWSERS: chromium
+    # 'on' keeps a trace and a video for passing tests too, so the report can be shown
+    # in a demo. Use retain-on-failure to keep only failures.
+    PW_TRACE: 'on'
+    PW_VIDEO: 'on'
 
 components:
     -
@@ -46,7 +53,7 @@ components:
         kind: Database
         name: db
         gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
-        gitBranch: feature/otel-instrumentation
+        gitBranch: demo/e2e-testing
         dockerCompose:
             environment:
                 POSTGRES_PASSWORD: postgres
@@ -68,7 +75,7 @@ components:
         kind: Service
         name: redis
         gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
-        gitBranch: feature/otel-instrumentation
+        gitBranch: demo/e2e-testing
         dockerCompose:
             healthcheck:
                 test:
@@ -85,7 +92,7 @@ components:
         kind: Application
         name: otel-collector
         gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
-        gitBranch: feature/otel-instrumentation
+        gitBranch: demo/e2e-testing
         gitApplicationPath: otel-collector
         dockerCompose:
             build:
@@ -125,7 +132,7 @@ components:
         kind: Application
         name: result
         gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
-        gitBranch: feature/otel-instrumentation
+        gitBranch: demo/e2e-testing
         gitApplicationPath: result
         dockerCompose:
             build:
@@ -157,7 +164,7 @@ components:
         kind: Application
         name: vote
         gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
-        gitBranch: feature/otel-instrumentation
+        gitBranch: demo/e2e-testing
         gitApplicationPath: vote
         dockerCompose:
             build:
@@ -198,7 +205,7 @@ components:
         kind: Application
         name: worker
         gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
-        gitBranch: feature/otel-instrumentation
+        gitBranch: demo/e2e-testing
         gitApplicationPath: worker
         dockerCompose:
             build:
@@ -214,6 +221,60 @@ components:
                 OTEL_RESOURCE_ATTRIBUTES: 'k8s.namespace.name={{ env.k8s.namespace }},bunnyshell.environment.id={{ env.unique }}'
                 DEPLOYMENT_ENVIRONMENT: '{{ env.name }}'
                 SERVICE_VERSION: '{{ env.vars.SERVICE_VERSION }}'
+    -
+        # Holds the e2e suite (e2e/) and serves the latest Playwright report. It does
+        # not run tests by itself; e2e-tests below triggers a run.
+        kind: Application
+        name: playwright
+        gitRepo: 'https://github.com/alexo-bunnyshell/example-voting-app.git'
+        gitBranch: demo/e2e-testing
+        gitApplicationPath: e2e
+        dockerCompose:
+            build:
+                context: ./e2e
+                dockerfile: Dockerfile
+            environment:
+                VOTE_URL: 'https://{{ components.vote.ingress.hosts[0].hostname }}'
+                RESULT_URL: 'https://{{ components.result.ingress.hosts[0].hostname }}'
+                RESULT_INTERNAL_URL: 'http://{{ components.result.name }}'
+                WAIT_FOR_URLS: 'http://{{ components.vote.name }}/healthz,http://{{ components.result.name }}/healthz,https://{{ components.vote.ingress.hosts[0].hostname }}/healthz,https://{{ components.result.ingress.hosts[0].hostname }}/healthz'
+                PW_BROWSERS: '{{ env.vars.PW_BROWSERS }}'
+                PW_TRACE: '{{ env.vars.PW_TRACE }}'
+                PW_VIDEO: '{{ env.vars.PW_VIDEO }}'
+                REPORT_URL: 'https://e2e-{{ env.base_domain }}'
+            ports:
+                - '9323:9323'
+        hosts:
+            -
+                hostname: 'e2e-{{ env.base_domain }}'
+                path: /
+                servicePort: 9323
+    -
+        # Runs the e2e suite on every deploy and start, inside the playwright pod, so
+        # the tests can reach internal services. Its exit code is the deploy result.
+        kind: KubernetesManifest
+        name: e2e-tests
+        runnerImage: 'alpine/k8s:1.37.1'
+        dependsOn:
+            - vote
+            - result
+            - worker
+            - playwright
+        deploy: &e2e_steps
+            - 'kubectl rollout status deployment/{{ components.playwright.name }} --timeout=300s'
+            - |
+              kubectl exec deployment/{{ components.playwright.name }} -- /app/scripts/run-tests.sh
+              rc=$?
+              echo "Playwright report: https://e2e-{{ env.base_domain }}"
+              if [ "$rc" -ne 0 ] && [ "{{ env.vars.E2E_BLOCKING }}" != "true" ]; then
+                echo "Tests failed, but E2E_BLOCKING is not 'true': not failing the deploy."
+                rc=0
+              fi
+              [ "$rc" -eq 0 ]
+        # The report lives in the pod, which restarts on environment start.
+        start: *e2e_steps
+        destroy:
+            - 'echo "Nothing to clean up: e2e-tests creates no cluster resources."'
 
 volumes:
     -
