@@ -255,7 +255,8 @@ namespace Worker
             }
             catch (DbException)
             {
-                command.CommandText = "UPDATE votes SET vote = @vote WHERE id = @id";
+                // Skip the write when the stored vote is already up to date.
+                command.CommandText = "UPDATE votes SET vote = @vote WHERE id = @id AND vote = @vote";
                 command.ExecuteNonQuery();
             }
             finally
